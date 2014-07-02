@@ -23,6 +23,7 @@ import android.os.Message;
 import android.os.PowerManager;
 import android.os.Registrant;
 import android.os.SystemClock;
+import android.telephony.DisconnectCause;
 import android.telephony.Rlog;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
@@ -74,10 +75,11 @@ public class GsmConnection extends Connection {
 
     int mNextPostDialChar;       // index into postDialString
 
-    DisconnectCause mCause = DisconnectCause.NOT_DISCONNECTED;
+    int mCause = DisconnectCause.NOT_DISCONNECTED;
     PostDialState mPostDialState = PostDialState.NOT_STARTED;
     int mNumberPresentation = PhoneConstants.PRESENTATION_ALLOWED;
     UUSInfo mUusInfo;
+    int mPreciseCause = 0;
 
     Handler mHandler;
 
@@ -238,7 +240,7 @@ public class GsmConnection extends Connection {
     }
 
     @Override
-    public DisconnectCause getDisconnectCause() {
+    public int getDisconnectCause() {
         return mCause;
     }
 
@@ -330,10 +332,15 @@ public class GsmConnection extends Connection {
     void
     onHangupLocal() {
         mCause = DisconnectCause.LOCAL;
+        mPreciseCause = 0;
     }
 
-    DisconnectCause
-    disconnectCauseFromCode(int causeCode) {
+    /**
+     * Maps RIL call disconnect code to {@link DisconnectCause}.
+     * @param causeCode RIL disconnect code
+     * @return the corresponding value from {@link DisconnectCause}
+     */
+    int disconnectCauseFromCode(int causeCode) {
         /**
          * See 22.001 Annex F.4 for mapping of cause codes
          * to local tones
@@ -402,12 +409,15 @@ public class GsmConnection extends Connection {
 
     /*package*/ void
     onRemoteDisconnect(int causeCode) {
+        this.mPreciseCause = causeCode;
         onDisconnect(disconnectCauseFromCode(causeCode));
     }
 
-    /** Called when the radio indicates the connection has been disconnected */
-    /*package*/ boolean
-    onDisconnect(DisconnectCause cause) {
+    /**
+     * Called when the radio indicates the connection has been disconnected.
+     * @param cause call disconnect cause; values are defined in {@link DisconnectCause}
+     */
+    /*package*/ boolean onDisconnect(int cause) {
         boolean changed = false;
 
         mCause = cause;
@@ -757,5 +767,9 @@ public class GsmConnection extends Connection {
     @Override
     public UUSInfo getUUSInfo() {
         return mUusInfo;
+    }
+
+    public int getPreciseDisconnectCause() {
+        return mPreciseCause;
     }
 }

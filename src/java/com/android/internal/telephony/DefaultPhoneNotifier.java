@@ -24,6 +24,8 @@ import android.os.ServiceManager;
 import android.telephony.CellInfo;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
+import android.telephony.PreciseCallState;
+import android.telephony.DisconnectCause;
 
 import com.android.internal.telephony.ITelephonyRegistry;
 
@@ -183,6 +185,39 @@ public class DefaultPhoneNotifier implements PhoneNotifier {
         }
     }
 
+    public void notifyPreciseCallState(Phone sender) {
+        Call ringingCall = sender.getRingingCall();
+        Call foregroundCall = sender.getForegroundCall();
+        Call backgroundCall = sender.getBackgroundCall();
+        if (ringingCall != null && foregroundCall != null && backgroundCall != null) {
+            try {
+                mRegistry.notifyPreciseCallState(
+                        convertPreciseCallState(ringingCall.getState()),
+                        convertPreciseCallState(foregroundCall.getState()),
+                        convertPreciseCallState(backgroundCall.getState()));
+            } catch (RemoteException ex) {
+                // system process is dead
+            }
+        }
+    }
+
+    public void notifyDisconnectCause(int cause, int preciseCause) {
+        try {
+            mRegistry.notifyDisconnectCause(cause, preciseCause);
+        } catch (RemoteException ex) {
+            // system process is dead
+        }
+    }
+
+    public void notifyPreciseDataConnectionFailed(Phone sender, String reason, String apnType,
+            String apn, String failCause) {
+        try {
+            mRegistry.notifyPreciseDataConnectionFailed(reason, apnType, apn, failCause);
+        } catch (RemoteException ex) {
+            // system process is dead
+        }
+    }
+
     /**
      * Convert the {@link PhoneConstants.State} enum into the TelephonyManager.CALL_STATE_*
      * constants for the public API.
@@ -282,6 +317,60 @@ public class DefaultPhoneNotifier implements PhoneNotifier {
                 return Phone.DataActivityState.DORMANT;
             default:
                 return Phone.DataActivityState.NONE;
+        }
+    }
+
+    /**
+     * Convert the {@link State} enum into the PreciseCallState.PRECISE_CALL_STATE_* constants
+     * for the public API.
+     */
+    public static int convertPreciseCallState(Call.State state) {
+        switch (state) {
+            case ACTIVE:
+                return PreciseCallState.PRECISE_CALL_STATE_ACTIVE;
+            case HOLDING:
+                return PreciseCallState.PRECISE_CALL_STATE_HOLDING;
+            case DIALING:
+                return PreciseCallState.PRECISE_CALL_STATE_DIALING;
+            case ALERTING:
+                return PreciseCallState.PRECISE_CALL_STATE_ALERTING;
+            case INCOMING:
+                return PreciseCallState.PRECISE_CALL_STATE_INCOMING;
+            case WAITING:
+                return PreciseCallState.PRECISE_CALL_STATE_WAITING;
+            case DISCONNECTED:
+                return PreciseCallState.PRECISE_CALL_STATE_DISCONNECTED;
+            case DISCONNECTING:
+                return PreciseCallState.PRECISE_CALL_STATE_DISCONNECTING;
+            default:
+                return PreciseCallState.PRECISE_CALL_STATE_IDLE;
+        }
+    }
+
+    /**
+     * Convert the Call.State.* constants into the {@link State} enum
+     * for the public API.
+     */
+    public static Call.State convertPreciseCallState(int state) {
+        switch (state) {
+            case PreciseCallState.PRECISE_CALL_STATE_ACTIVE:
+                return Call.State.ACTIVE;
+            case PreciseCallState.PRECISE_CALL_STATE_HOLDING:
+                return Call.State.HOLDING;
+            case PreciseCallState.PRECISE_CALL_STATE_DIALING:
+                return Call.State.DIALING;
+            case PreciseCallState.PRECISE_CALL_STATE_ALERTING:
+                return Call.State.ALERTING;
+            case PreciseCallState.PRECISE_CALL_STATE_INCOMING:
+                return Call.State.INCOMING;
+            case PreciseCallState.PRECISE_CALL_STATE_WAITING:
+                return Call.State.WAITING;
+            case PreciseCallState.PRECISE_CALL_STATE_DISCONNECTED:
+                return Call.State.DISCONNECTED;
+            case PreciseCallState.PRECISE_CALL_STATE_DISCONNECTING:
+                return Call.State.DISCONNECTING;
+            default:
+                return Call.State.IDLE;
         }
     }
 }
